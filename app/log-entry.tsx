@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { Button } from '../src/components/Button';
 import { useLogStore } from '../src/store/useLogStore';
 import { useProfileStore } from '../src/store/useProfileStore';
@@ -40,6 +41,7 @@ export default function LogEntryScreen() {
     });
     setIsSubmitting(false);
     setShowSuccess(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     
     // Auto-close after showing success briefly
     setTimeout(() => {

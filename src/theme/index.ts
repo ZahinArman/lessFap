@@ -35,12 +35,11 @@ export const radii = {
   full: 9999,
 };
 
-// Assuming Inter font will be loaded
 export const typography = {
-  display: { fontSize: 28, fontWeight: '700' as const, letterSpacing: -0.5 },
-  title: { fontSize: 22, fontWeight: '600' as const, letterSpacing: -0.3 },
-  headline: { fontSize: 18, fontWeight: '600' as const, letterSpacing: 0 },
-  body: { fontSize: 16, fontWeight: '400' as const, letterSpacing: 0 },
-  caption: { fontSize: 13, fontWeight: '500' as const, letterSpacing: 0.2 },
-  label: { fontSize: 11, fontWeight: '600' as const, letterSpacing: 0.5 },
+  display: { fontFamily: 'Inter_700Bold', fontSize: 28, letterSpacing: -0.5 },
+  title: { fontFamily: 'Inter_600SemiBold', fontSize: 22, letterSpacing: -0.3 },
+  headline: { fontFamily: 'Inter_600SemiBold', fontSize: 18, letterSpacing: 0 },
+  body: { fontFamily: 'Inter_400Regular', fontSize: 16, letterSpacing: 0 },
+  caption: { fontFamily: 'Inter_500Medium', fontSize: 13, letterSpacing: 0.2 },
+  label: { fontFamily: 'Inter_600SemiBold', fontSize: 11, letterSpacing: 0.5 },
 };

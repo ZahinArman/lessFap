@@ -1,5 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, TouchableOpacityProps, ActivityIndicator } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { colors, radii, spacing, typography } from '../theme';
 
 interface ButtonProps extends TouchableOpacityProps {
@@ -8,7 +9,7 @@ interface ButtonProps extends TouchableOpacityProps {
   isLoading?: boolean;
 }
 
-export const Button = ({ title, variant = 'primary', isLoading, style, disabled, ...props }: ButtonProps) => {
+export const Button = ({ title, variant = 'primary', isLoading, style, disabled, onPress, ...props }: ButtonProps) => {
   const containerStyle = [
     styles.base,
     styles[variant],
@@ -22,11 +23,20 @@ export const Button = ({ title, variant = 'primary', isLoading, style, disabled,
     disabled && styles.disabledText,
   ];
 
+  const handlePress = (e: any) => {
+    if (disabled || isLoading) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    if (onPress) {
+      onPress(e);
+    }
+  };
+
   return (
     <TouchableOpacity
       style={containerStyle}
       disabled={disabled || isLoading}
       activeOpacity={0.8}
+      onPress={handlePress}
       {...props}
     >
       {isLoading ? (
