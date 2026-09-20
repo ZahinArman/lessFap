@@ -28,6 +28,13 @@
       "expo-status-bar",
       "expo-secure-store",
       "expo-splash-screen"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2ec35814-2163-4aea-83ec-67d366a74f29"
+      }
+    },
+    "owner": "zahin_arman"
   }
 }
