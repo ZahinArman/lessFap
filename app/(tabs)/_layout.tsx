@@ -1,8 +1,10 @@
+import React from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { House, Notebook, ChartLineUp, User, Plus } from 'phosphor-react-native';
 import { colors, spacing, radii, typography } from '../../src/theme';
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+
+type BottomTabBarProps = Parameters<NonNullable<React.ComponentProps<typeof Tabs>['tabBar']>>[0];
 
 function CenterButton() {
   const router = useRouter();

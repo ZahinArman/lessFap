@@ -28,7 +28,7 @@ export default function MindfulnessScreen() {
   const [phaseIndex, setPhaseIndex] = useState(0);
   const [exerciseComplete, setExerciseComplete] = useState(false);
   const [cycles, setCycles] = useState(0);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exerciseCompleteRef = useRef(false);
   
   const scale = useSharedValue(1);
