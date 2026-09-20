@@ -42,6 +42,13 @@ export default function RootLayout() {
           animation: 'fade',
         }} 
       />
+      <Stack.Screen 
+        name="goal-editor" 
+        options={{ 
+          presentation: 'modal',
+          animation: 'slide_from_bottom',
+        }} 
+      />
     </Stack>
   );
 }

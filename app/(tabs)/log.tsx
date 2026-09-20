@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { Trash } from 'phosphor-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLogStore } from '../../src/store/useLogStore';
 import { colors, spacing, typography, radii } from '../../src/theme';
@@ -7,18 +8,34 @@ import { Card } from '../../src/components/Card';
 import { format } from 'date-fns';
 
 export default function LogScreen() {
-  const { logs } = useLogStore();
+  const { logs, deleteLog } = useLogStore();
+
+  const handleDelete = (id: string) => {
+    Alert.alert(
+      "Delete Log",
+      "Are you sure you want to delete this log? This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => deleteLog(id) }
+      ]
+    );
+  };
 
   const renderItem = ({ item }: { item: any }) => {
     return (
       <Card style={styles.logCard} padding="lg">
         <View style={styles.cardHeader}>
-          <Text style={styles.dateText}>
-            {format(new Date(item.timestamp), 'EEEE, MMM d')}
-          </Text>
-          <Text style={styles.timeText}>
-            {format(new Date(item.timestamp), 'h:mm a')}
-          </Text>
+          <View>
+            <Text style={styles.dateText}>
+              {format(new Date(item.timestamp), 'EEEE, MMM d')}
+            </Text>
+            <Text style={styles.timeText}>
+              {format(new Date(item.timestamp), 'h:mm a')}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => handleDelete(item.id)} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+            <Trash size={20} color={colors.textTertiary} />
+          </TouchableOpacity>
         </View>
 
         {item.trigger && (

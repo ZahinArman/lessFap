@@ -2,23 +2,26 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLogStore } from '../../src/store/useLogStore';
+import { useProfileStore } from '../../src/store/useProfileStore';
 import { colors, spacing, typography, radii } from '../../src/theme';
 import { Card } from '../../src/components/Card';
 import { getWeekBoundaries } from '../../src/utils/weekHelpers';
-import { subWeeks, format, parseISO, isWithinInterval } from 'date-fns';
+import { subWeeks, format, parseISO, isWithinInterval, differenceInDays } from 'date-fns';
 import { BarChart } from 'react-native-gifted-charts';
 
 export default function InsightsScreen() {
   const { logs } = useLogStore();
+  const { profile } = useProfileStore();
+
+  const weekStartsOn = profile?.weekStartDay === 'monday' ? 1 : 0;
 
   const chartData = useMemo(() => {
-    // Generate last 6 weeks of data
     const data = [];
     const now = new Date();
     
     for (let i = 5; i >= 0; i--) {
       const targetDate = subWeeks(now, i);
-      const { start, end } = getWeekBoundaries(targetDate, 1);
+      const { start, end } = getWeekBoundaries(targetDate, weekStartsOn as 0 | 1);
       
       const count = logs.filter(log => {
         const d = parseISO(log.timestamp);
@@ -32,21 +35,54 @@ export default function InsightsScreen() {
       });
     }
     return data;
-  }, [logs]);
+  }, [logs, weekStartsOn]);
 
-  const totalAllTime = logs.length;
-  
-  // Calculate most common trigger
-  const topTrigger = useMemo(() => {
+  const { thisWeekCount, lastWeekCount, averagePerWeek } = useMemo(() => {
+    if (chartData.length < 2) return { thisWeekCount: 0, lastWeekCount: 0, averagePerWeek: 0 };
+    const thisWk = chartData[5].value;
+    const lastWk = chartData[4].value;
+    
+    // Average based on all logs and first log date
+    let avg = 0;
+    if (logs.length > 0) {
+      const firstLogDate = parseISO(logs[logs.length - 1].timestamp); // logs are sorted desc
+      const daysElapsed = Math.max(1, differenceInDays(new Date(), firstLogDate));
+      const weeksElapsed = daysElapsed / 7;
+      avg = Math.round((logs.length / weeksElapsed) * 10) / 10;
+    }
+
+    return { thisWeekCount: thisWk, lastWeekCount: lastWk, averagePerWeek: avg };
+  }, [chartData, logs]);
+
+  const triggerDistribution = useMemo(() => {
     const counts: Record<string, number> = {};
+    let totalWithTriggers = 0;
+    
     logs.forEach(log => {
       if (log.trigger) {
         counts[log.trigger] = (counts[log.trigger] || 0) + 1;
+        totalWithTriggers++;
       }
     });
-    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-    return entries.length > 0 ? entries[0] : null;
+
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([trigger, count]) => ({
+        trigger: trigger.replace(/_/g, ' '),
+        count,
+        percentage: totalWithTriggers > 0 ? Math.round((count / totalWithTriggers) * 100) : 0,
+      }));
   }, [logs]);
+
+  const trendText = useMemo(() => {
+    if (thisWeekCount < lastWeekCount) {
+      return "You are logging fewer times this week than last week. Great progress.";
+    } else if (thisWeekCount === lastWeekCount) {
+      return "Your frequency is steady compared to last week.";
+    } else {
+      return "You have logged more times this week. Be gentle with yourself and keep building awareness.";
+    }
+  }, [thisWeekCount, lastWeekCount]);
 
   if (logs.length === 0) {
     return (
@@ -86,27 +122,48 @@ export default function InsightsScreen() {
           </View>
         </Card>
 
+        {/* Weekly Stats */}
         <View style={styles.statsGrid}>
           <Card style={styles.gridCard} padding="md">
-            <Text style={styles.gridValue}>{totalAllTime}</Text>
-            <Text style={styles.gridLabel}>Total logs</Text>
+            <Text style={styles.gridValue}>{averagePerWeek}</Text>
+            <Text style={styles.gridLabel}>Weekly average</Text>
           </Card>
           
           <Card style={styles.gridCard} padding="md">
-            <Text style={styles.gridValue}>
-              {topTrigger ? topTrigger[0].replace(/_/g, ' ') : '--'}
+            <Text style={[styles.gridValue, { color: thisWeekCount <= lastWeekCount ? colors.accentGreen : colors.accentRose }]}>
+              {thisWeekCount} <Text style={{fontSize: 14, color: colors.textTertiary}}>vs {lastWeekCount}</Text>
             </Text>
-            <Text style={styles.gridLabel}>Top trigger</Text>
+            <Text style={styles.gridLabel}>This wk vs Last wk</Text>
           </Card>
         </View>
 
-        <Card style={styles.infoCard} padding="lg">
-          <Text style={styles.infoTitle}>About your data</Text>
-          <Text style={styles.infoText}>
-            Your activity patterns are visible here. Remember that progress isn't always a straight line. 
-            If numbers go up, use it as a moment of curiosity, not judgment.
-          </Text>
-        </Card>
+        <Text style={styles.trendText}>{trendText}</Text>
+
+        {/* Trigger Distribution */}
+        {triggerDistribution.length > 0 && (
+          <Card style={styles.triggerCard} padding="lg">
+            <Text style={styles.cardTitle}>Triggers Breakdown</Text>
+            
+            {triggerDistribution.map((item, index) => (
+              <View key={index} style={styles.triggerRow}>
+                <View style={styles.triggerLabelContainer}>
+                  <Text style={styles.triggerLabel}>{item.trigger}</Text>
+                  <Text style={styles.triggerPercent}>{item.percentage}%</Text>
+                </View>
+                
+                <View style={styles.barBackground}>
+                  <View 
+                    style={[
+                      styles.barFill, 
+                      { width: `${item.percentage}%` },
+                      index === 0 ? { backgroundColor: colors.accentPrimary } : null
+                    ]} 
+                  />
+                </View>
+              </View>
+            ))}
+          </Card>
+        )}
 
       </ScrollView>
     </SafeAreaView>
@@ -167,26 +224,49 @@ const styles = StyleSheet.create({
   },
   gridValue: {
     ...typography.title,
-    color: colors.accentPrimary,
+    color: colors.textPrimary,
     marginBottom: spacing.xs,
-    textTransform: 'capitalize',
   },
   gridLabel: {
     ...typography.caption,
     color: colors.textSecondary,
   },
-  infoCard: {
-    backgroundColor: '#F0EEFD',
-    borderWidth: 0,
-  },
-  infoTitle: {
-    ...typography.headline,
-    color: colors.accentPrimary,
-    marginBottom: spacing.sm,
-  },
-  infoText: {
+  trendText: {
     ...typography.caption,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    marginBottom: spacing.xxl,
+    paddingHorizontal: spacing.sm,
+  },
+  triggerCard: {
+    marginBottom: spacing.lg,
+  },
+  triggerRow: {
+    marginBottom: spacing.lg,
+  },
+  triggerLabelContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  triggerLabel: {
+    ...typography.label,
     color: colors.textPrimary,
-    lineHeight: 20,
+    textTransform: 'capitalize',
+  },
+  triggerPercent: {
+    ...typography.label,
+    color: colors.textTertiary,
+  },
+  barBackground: {
+    height: 8,
+    backgroundColor: colors.divider,
+    borderRadius: radii.full,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    backgroundColor: colors.textTertiary,
+    borderRadius: radii.full,
   },
 });

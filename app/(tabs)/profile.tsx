@@ -53,12 +53,13 @@ export default function ProfileScreen() {
             </View>
           </View>
           <View style={styles.divider} />
-          <View style={styles.row}>
-            <View>
+          <TouchableOpacity style={styles.row} onPress={() => router.push('/goal-editor')}>
+            <View style={{ flex: 1 }}>
               <Text style={styles.rowTitle}>Current Goal</Text>
               <Text style={[styles.rowSubtitle, {textTransform: 'capitalize'}]}>{profile.goalType}</Text>
             </View>
-          </View>
+            <Text style={{color: colors.textTertiary, ...typography.caption}}>Edit →</Text>
+          </TouchableOpacity>
         </Card>
 
         <Text style={styles.sectionHeading}>Preferences</Text>
