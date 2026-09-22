@@ -31,27 +31,32 @@ jobs:
           distribution: 'temurin'
           java-version: 17
 
-      - name: 📦 Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: 🐘 Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: 📥 Install dependencies
-        run: npm install --legacy-peer-deps
+        run: npm install
 
       - name: 🏗️ Generate Native Android Project (Expo Prebuild)
-        run: npx expo prebuild --platform android --clean
+        run: npx expo prebuild --platform android --clean --no-install
 
       - name: 🔨 Build Android APK with Gradle
         working-directory: android
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease || ./gradlew assembleDebug
+          ./gradlew assembleRelease --no-daemon || ./gradlew assembleDebug --no-daemon
 
       - name: 🔍 Locate Generated APK
         id: find_apk
         run: |
           APK_PATH=$(find android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            echo "Error: No APK found!"
+            exit 1
+          fi
           echo "Found APK at: $APK_PATH"
-          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
           cp "$APK_PATH" lessFap.apk
 
       - name: 📤 Upload APK Artifact
@@ -61,22 +66,21 @@ jobs:
           path: lessFap.apk
 
       - name: 🚀 Create GitHub Release & Publish APK
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
           files: lessFap.apk
-          tag_name: ${{ github.ref_name || 'v1.0.0' }}
-          name: "Less v${{ github.ref_name || '1.0.0' }}"
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}
+          name: "Less v${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '1.0.0' }}"
           body: |
             ## 📱 Less — Mindful Habit Reduction
             **"Less, not perfection."**
 
-            ### Direct APK Download:
+            ### 📥 Direct APK Download:
             Download and install `lessFap.apk` on your Android device.
 
             #### How to Install:
-            1. Tap the `lessFap.apk` link below to download.
-            2. Open the downloaded file on your Android phone.
+            1. Tap the `lessFap.apk` file below in the Assets to download.
+            2. Open the downloaded file on your Android device.
             3. If prompted, allow **"Install from unknown sources"** for your browser.
             4. Tap **Install** and open **Less**.
           draft: false
