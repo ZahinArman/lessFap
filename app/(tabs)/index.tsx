@@ -6,11 +6,14 @@ import { useProfileStore } from '../../src/store/useProfileStore';
 import { useLogStore } from '../../src/store/useLogStore';
 import { colors, spacing, typography, radii } from '../../src/theme';
 import { Card } from '../../src/components/Card';
+import { InsightCard } from '../../src/components/InsightCard';
 import { getGreeting } from '../../src/utils/greetings';
 import { computeWeeklySummary, getWeekBoundaries } from '../../src/utils/weekHelpers';
 import { getEncouragementMessage } from '../../src/utils/encouragement';
+import { generatePatternSummaries } from '../../src/utils/patternAnalysis';
+import { refreshNotifications } from '../../src/utils/notifications';
 import { format, addDays, isSameDay, isToday, isBefore, parseISO, startOfDay } from 'date-fns';
-import { UserCircle, Wind, Plus } from 'phosphor-react-native';
+import { UserCircle, Wind, Plus, ArrowRight } from 'phosphor-react-native';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -23,6 +26,13 @@ export default function HomeScreen() {
     const interval = setInterval(() => setCurrentDate(new Date()), 60000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (profile?.notificationSettings && !profile.notificationSettings.allNotificationsDisabled) {
+      const patterns = generatePatternSummaries(logs);
+      refreshNotifications(profile.notificationSettings, patterns).catch(() => {});
+    }
+  }, [profile?.notificationSettings, logs]);
 
   if (!profile) return null;
 
@@ -37,7 +47,7 @@ export default function HomeScreen() {
   );
 
   const greeting = getGreeting(profile.name);
-  const formattedDate = format(currentDate, 'dd MMMM yyyy');
+  const formattedDate = format(currentDate, 'EEEE, MMMM d');
   const encouragement = getEncouragementMessage(summary);
   const isPositiveTrend = summary.totalLogs <= summary.previousWeekTotal;
 
@@ -51,8 +61,8 @@ export default function HomeScreen() {
       const logsOnDay = logs.filter(log => isSameDay(parseISO(log.timestamp), dayStart));
       days.push({
         date: day,
-        label: format(day, 'EEE'),     // Mon, Tue...
-        dayNum: format(day, 'd'),       // 1, 2, 3...
+        label: format(day, 'EEE'),
+        dayNum: format(day, 'd'),
         isToday: isToday(day),
         isPast: isBefore(day, startOfDay(currentDate)),
         logCount: logsOnDay.length,
@@ -61,10 +71,33 @@ export default function HomeScreen() {
     return days;
   }, [logs, currentDate, weekStartsOn]);
 
+  // Generate top pattern insight
+  const topPattern = useMemo(() => {
+    const patterns = generatePatternSummaries(logs);
+    return patterns.length > 0 ? patterns[0] : null;
+  }, [logs]);
+
+  // Goal display text
+  const goalText = useMemo(() => {
+    switch (profile.goalType) {
+      case 'target':
+        return profile.weeklyTarget
+          ? `Fewer than ${profile.weeklyTarget} per week`
+          : 'Personal target';
+      case 'reduce':
+        return `Fewer than last week (${summary.previousWeekTotal})`;
+      case 'abstinence':
+        return 'Intentional abstinence';
+      case 'awareness':
+      default:
+        return 'Awareness & reflection';
+    }
+  }, [profile.goalType, profile.weeklyTarget, summary.previousWeekTotal]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
+
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -76,36 +109,41 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 7-Day Week Grid */}
+        {/* Weekly Progress Card */}
         <Card style={styles.weekCard} padding="lg">
-          <Text style={styles.weekCardTitle}>This week</Text>
+          <View style={styles.weekCardHeader}>
+            <Text style={styles.weekCardTitle}>This week</Text>
+            <View style={[styles.trendBadge, isPositiveTrend ? styles.trendPositive : styles.trendNeutral]}>
+              <Text style={[styles.trendText, isPositiveTrend ? styles.trendTextPositive : styles.trendTextNeutral]}>
+                {summary.totalLogs < summary.previousWeekTotal
+                  ? '↓ Reducing'
+                  : summary.totalLogs === summary.previousWeekTotal
+                  ? '— Steady'
+                  : '↑ More'}
+              </Text>
+            </View>
+          </View>
+
+          {/* 7-day grid */}
           <View style={styles.weekGrid}>
             {weekDays.map((day, idx) => {
               const hasLogs = day.logCount > 0;
-              const isClean = !hasLogs && (day.isPast || day.isToday);
               return (
                 <View key={idx} style={styles.dayColumn}>
-                  <Text style={[
-                    styles.dayLabel, 
-                    day.isToday && styles.dayLabelToday
-                  ]}>
+                  <Text style={[styles.dayLabel, day.isToday && styles.dayLabelToday]}>
                     {day.label}
                   </Text>
-                  <View style={[
-                    styles.dayCircle,
-                    day.isToday && styles.dayCircleToday,
-                    hasLogs && styles.dayCircleLogged,
-                    isClean && styles.dayCircleClean,
-                  ]}>
+                  <View
+                    style={[
+                      styles.dayCircle,
+                      day.isToday && styles.dayCircleToday,
+                      hasLogs && styles.dayCircleLogged,
+                    ]}
+                  >
                     {hasLogs ? (
                       <Text style={styles.dayCircleLoggedText}>{day.logCount}</Text>
-                    ) : isClean ? (
-                      <Text style={styles.dayCircleCleanText}>✓</Text>
                     ) : (
-                      <Text style={[
-                        styles.dayNum,
-                        day.isToday && styles.dayNumToday
-                      ]}>
+                      <Text style={[styles.dayNum, day.isToday && styles.dayNumToday]}>
                         {day.dayNum}
                       </Text>
                     )}
@@ -116,33 +154,44 @@ export default function HomeScreen() {
           </View>
 
           {/* Stats row */}
-          <View style={styles.miniStatsRow}>
-            <View style={styles.miniStat}>
-              <Text style={styles.miniStatNum}>{summary.totalLogs}</Text>
-              <Text style={styles.miniStatLabel}>this week</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{summary.totalLogs}</Text>
+              <Text style={styles.statLabel}>this week</Text>
             </View>
-            <View style={styles.miniStatDivider} />
-            <View style={styles.miniStat}>
-              <Text style={styles.miniStatNum}>{summary.previousWeekTotal}</Text>
-              <Text style={styles.miniStatLabel}>last week</Text>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{summary.previousWeekTotal}</Text>
+              <Text style={styles.statLabel}>last week</Text>
             </View>
-            <View style={styles.miniStatDivider} />
-            <View style={styles.miniStat}>
-              <View style={[styles.trendBadge, isPositiveTrend ? styles.trendPositive : styles.trendNeutral]}>
-                <Text style={[styles.trendText, isPositiveTrend ? styles.trendTextPositive : styles.trendTextNeutral]}>
-                  {summary.totalLogs < summary.previousWeekTotal ? '↓ Reducing' : summary.totalLogs === summary.previousWeekTotal ? '— Steady' : '↑ More'}
-                </Text>
-              </View>
-            </View>
+            {(profile.goalType === 'target' || profile.goalType === 'reduce') && (
+              <>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>
+                    {profile.goalType === 'target' ? (profile.weeklyTarget ?? '—') : `< ${summary.previousWeekTotal}`}
+                  </Text>
+                  <Text style={styles.statLabel}>goal</Text>
+                </View>
+              </>
+            )}
           </View>
 
+          {/* Days info */}
+          <View style={styles.daysRow}>
+            <Text style={styles.daysText}>
+              Day {summary.daysElapsed} of 7 · {summary.daysRemaining} day{summary.daysRemaining !== 1 ? 's' : ''} remaining
+            </Text>
+          </View>
+
+          {/* Encouragement */}
           <View style={styles.encouragementBox}>
             <Text style={styles.encouragementText}>{encouragement}</Text>
           </View>
         </Card>
 
-        {/* Log Button — Primary action */}
-        <TouchableOpacity 
+        {/* Log Button */}
+        <TouchableOpacity
           activeOpacity={0.85}
           onPress={() => router.push('/log-entry')}
           style={styles.logButton}
@@ -151,14 +200,14 @@ export default function HomeScreen() {
             <Plus size={22} color={colors.surface} weight="bold" />
           </View>
           <View style={styles.logButtonTextContainer}>
-            <Text style={styles.logButtonTitle}>I relapsed</Text>
-            <Text style={styles.logButtonSubtitle}>Log it honestly. No judgment.</Text>
+            <Text style={styles.logButtonTitle}>+ Log</Text>
+            <Text style={styles.logButtonSubtitle}>Log honestly, without judgment.</Text>
           </View>
         </TouchableOpacity>
 
         {/* Pause / Mindfulness Card */}
-        <TouchableOpacity 
-          activeOpacity={0.9} 
+        <TouchableOpacity
+          activeOpacity={0.9}
           onPress={() => router.push('/mindfulness')}
         >
           <Card style={styles.pauseCard} padding="lg">
@@ -172,6 +221,32 @@ export default function HomeScreen() {
           </Card>
         </TouchableOpacity>
 
+        {/* Pattern Insight Card */}
+        {topPattern ? (
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Pattern insight</Text>
+              <TouchableOpacity onPress={() => router.navigate('/(tabs)/insights')}>
+                <View style={styles.viewAllButton}>
+                  <Text style={styles.sectionLink}>View all</Text>
+                  <ArrowRight size={12} color={colors.textSecondary} />
+                </View>
+              </TouchableOpacity>
+            </View>
+            <InsightCard
+              summary={topPattern}
+              onViewDetails={() => router.navigate('/(tabs)/insights')}
+            />
+          </View>
+        ) : logs.length < 5 ? (
+          <Card style={styles.emptyInsightCard} padding="lg">
+            <Text style={styles.emptyInsightTitle}>Discover your patterns</Text>
+            <Text style={styles.emptyInsightText}>
+              Keep logging to unlock insights about your habits and timing. At least 5 logs are needed.
+            </Text>
+          </Card>
+        ) : null}
+
         {/* Recent Reflections */}
         {logs.filter(l => l.reflection).length > 0 && (
           <View style={styles.sectionContainer}>
@@ -181,7 +256,7 @@ export default function HomeScreen() {
                 <Text style={styles.sectionLink}>View all →</Text>
               </TouchableOpacity>
             </View>
-            
+
             {logs.filter(l => l.reflection).slice(0, 2).map(log => (
               <Card key={log.id} style={styles.reflectionCard} padding="lg">
                 <Text style={styles.reflectionDate}>{format(new Date(log.timestamp), 'MMM d, h:mm a')}</Text>
@@ -226,14 +301,19 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 
-  // === 7-Day Week Grid ===
+  // Weekly Progress Card
   weekCard: {
+    marginBottom: spacing.lg,
+  },
+  weekCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: spacing.lg,
   },
   weekCardTitle: {
     ...typography.headline,
     color: colors.textPrimary,
-    marginBottom: spacing.lg,
   },
   weekGrid: {
     flexDirection: 'row',
@@ -269,17 +349,9 @@ const styles = StyleSheet.create({
   dayCircleLogged: {
     backgroundColor: colors.accentRose,
   },
-  dayCircleClean: {
-    backgroundColor: '#E6F4EA',
-  },
   dayCircleLoggedText: {
     ...typography.caption,
     color: colors.surface,
-    fontWeight: '700',
-  },
-  dayCircleCleanText: {
-    fontSize: 14,
-    color: colors.accentGreen,
     fontWeight: '700',
   },
   dayNum: {
@@ -291,30 +363,32 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // === Mini Stats Row ===
-  miniStatsRow: {
+  // Stats Row
+  statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.md,
   },
-  miniStat: {
+  statItem: {
     flex: 1,
     alignItems: 'center',
   },
-  miniStatNum: {
+  statNumber: {
     ...typography.title,
     color: colors.textPrimary,
   },
-  miniStatLabel: {
+  statLabel: {
     ...typography.label,
     color: colors.textTertiary,
     marginTop: 2,
   },
-  miniStatDivider: {
+  statDivider: {
     width: 1,
     height: 28,
     backgroundColor: colors.divider,
   },
+
+  // Trend Badge
   trendBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
@@ -336,6 +410,17 @@ const styles = StyleSheet.create({
     color: colors.accentPrimary,
   },
 
+  // Days info
+  daysRow: {
+    marginBottom: spacing.md,
+    alignItems: 'center',
+  },
+  daysText: {
+    ...typography.label,
+    color: colors.textTertiary,
+  },
+
+  // Encouragement
   encouragementBox: {
     backgroundColor: colors.background,
     padding: spacing.md,
@@ -348,7 +433,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  // === Log Button ===
+  // Log Button
   logButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -357,14 +442,14 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     marginBottom: spacing.lg,
     borderWidth: 1.5,
-    borderColor: colors.accentRose,
+    borderColor: colors.accentPrimary,
     borderStyle: 'dashed',
   },
   logButtonIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.accentRose,
+    backgroundColor: colors.accentPrimary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -382,7 +467,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 
-  // === Pause Card ===
+  // Pause Card
   pauseCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -411,7 +496,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.8)',
   },
 
-  // === Reflections ===
+  // Pattern insight
   sectionContainer: {
     marginBottom: spacing.xl,
   },
@@ -429,6 +514,32 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
   },
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+
+  // Empty insight
+  emptyInsightCard: {
+    marginBottom: spacing.xl,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    borderStyle: 'dashed',
+  },
+  emptyInsightTitle: {
+    ...typography.headline,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  emptyInsightText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+
+  // Reflections
   reflectionCard: {
     marginBottom: spacing.md,
   },

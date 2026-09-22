@@ -34,6 +34,7 @@ export default function ProgressScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.stepLabel}>Step 3 of 4</Text>
         <Text style={styles.title}>How would you like to measure progress?</Text>
         <Text style={styles.subtitle}>Choose an approach that feels supportive, not punishing.</Text>
         
@@ -77,6 +78,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.xl,
+  },
+  stepLabel: {
+    ...typography.label,
+    color: colors.textTertiary,
+    textTransform: 'uppercase',
+    marginBottom: spacing.md,
   },
   title: {
     ...typography.display,

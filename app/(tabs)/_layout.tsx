@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
-import { House, Notebook, ChartLineUp, User, Plus } from 'phosphor-react-native';
+import { House, CalendarBlank, ChartLineUp, User, Plus } from 'phosphor-react-native';
 import { colors, spacing, radii, typography } from '../../src/theme';
 
 type BottomTabBarProps = Parameters<NonNullable<React.ComponentProps<typeof Tabs>['tabBar']>>[0];
@@ -46,7 +46,7 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             label = 'Home';
             break;
           case 'log':
-            Icon = Notebook;
+            Icon = CalendarBlank;
             label = 'Log';
             break;
           case 'insights':

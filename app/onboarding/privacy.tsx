@@ -33,9 +33,11 @@ export default function PrivacyScreen() {
             <LockKey size={48} color={colors.accentPrimary} weight="duotone" />
           </View>
           
-          <Text style={styles.title}>Your progress is yours.</Text>
+          <Text style={styles.stepLabel}>Step 4 of 4</Text>
+          
+          <Text style={styles.title}>Your data stays on your device.</Text>
           <Text style={styles.subtitle}>
-            Less is designed with your privacy in mind. All your data stays securely on this device. We don't track you, we don't judge you, and we don't sell your data.
+            All your data is stored locally on this device. We don't send your logs or reflections to external services. While local storage provides strong protection, we cannot make absolute security guarantees.
           </Text>
 
           <View style={styles.inputContainer}>
@@ -83,6 +85,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.xl,
+  },
+  stepLabel: {
+    ...typography.label,
+    color: colors.textTertiary,
+    textTransform: 'uppercase',
+    marginBottom: spacing.md,
   },
   title: {
     ...typography.display,

@@ -47,6 +47,20 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
         mindfulnessReminder: false,
       },
       hasCompletedOnboarding: false,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      notificationSettings: {
+        smartPatternRemindersEnabled: false,
+        weeklyReviewEnabled: false,
+        monthlyReviewEnabled: false,
+        personalRemindersEnabled: false,
+        personalReminderHour: 21,
+        personalReminderMinute: 0,
+        quietHoursStart: 22,
+        quietHoursEnd: 7,
+        cooldownMinutes: 480,
+        notificationPreviewDetail: 'minimal',
+        allNotificationsDisabled: true,
+      },
     };
 
     const updatedProfile = { ...baseProfile, ...updates };

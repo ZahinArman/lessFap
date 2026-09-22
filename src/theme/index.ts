@@ -6,6 +6,7 @@ export const colors = {
   textTertiary: '#9CA3AF', // Light gray
   
   accentPrimary: '#7C6BF0', // Soft lavender-purple
+  accentPrimaryLight: '#F0EEFD', // Soft lavender-purple background tint
   accentWarm: '#F5A623', // Warm amber
   accentBlue: '#5B9BD5', // Gentle blue
   accentGreen: '#6BBF7A', // Soft green — positive indicators
@@ -43,3 +44,35 @@ export const typography = {
   caption: { fontFamily: 'Inter_500Medium', fontSize: 13, letterSpacing: 0.2 },
   label: { fontFamily: 'Inter_600SemiBold', fontSize: 11, letterSpacing: 0.5 },
 };
+
+export const shadows = {
+  card: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  modal: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  button: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+};
+
+export const animation = {
+  fast: 150,
+  standard: 250,
+  slow: 400,
+  spring: { damping: 15, stiffness: 150, mass: 1 },
+};
+

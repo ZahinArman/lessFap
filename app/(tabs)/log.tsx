@@ -1,75 +1,175 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
-import { Trash } from 'phosphor-react-native';
+import React, { useState, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useLogStore } from '../../src/store/useLogStore';
 import { colors, spacing, typography, radii } from '../../src/theme';
 import { Card } from '../../src/components/Card';
-import { format } from 'date-fns';
+import { MonthCalendar } from '../../src/components/MonthCalendar';
+import { DayDetail } from '../../src/components/DayDetail';
+import { LogEntry } from '../../src/types';
+import { format, parseISO, isSameDay } from 'date-fns';
 
 export default function LogScreen() {
+  const router = useRouter();
   const { logs, deleteLog } = useLogStore();
 
-  const handleDelete = (id: string) => {
-    Alert.alert(
-      "Delete Log",
-      "Are you sure you want to delete this log? This cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => deleteLog(id) }
-      ]
-    );
-  };
+  const [year, setYear] = useState<number>(() => new Date().getFullYear());
+  const [month, setMonth] = useState<number>(() => new Date().getMonth());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
-  const renderItem = ({ item }: { item: any }) => {
-    return (
-      <Card style={styles.logCard} padding="lg">
-        <View style={styles.cardHeader}>
-          <View>
-            <Text style={styles.dateText}>
-              {format(new Date(item.timestamp), 'EEEE, MMM d')}
-            </Text>
-            <Text style={styles.timeText}>
-              {format(new Date(item.timestamp), 'h:mm a')}
-            </Text>
-          </View>
-          <TouchableOpacity onPress={() => handleDelete(item.id)} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
-            <Trash size={20} color={colors.textTertiary} />
-          </TouchableOpacity>
-        </View>
+  const monthDate = useMemo(() => new Date(year, month, 1), [year, month]);
 
-        {item.trigger && (
-          <View style={styles.triggerTag}>
-            <Text style={styles.triggerTagText}>{item.trigger.replace(/_/g, ' ')}</Text>
-          </View>
-        )}
+  const isCurrentMonth = useMemo(() => {
+    const now = new Date();
+    return now.getFullYear() === year && now.getMonth() === month;
+  }, [year, month]);
 
-        {item.reflection && (
-          <Text style={styles.reflectionText}>"{item.reflection}"</Text>
-        )}
-      </Card>
-    );
-  };
+  const monthLogs = useMemo(() => {
+    return logs.filter((log) => {
+      const logDate = parseISO(log.timestamp);
+      return logDate.getFullYear() === year && logDate.getMonth() === month;
+    });
+  }, [logs, year, month]);
+
+  const activeDaysCount = useMemo(() => {
+    const daySet = new Set<string>();
+    monthLogs.forEach((log) => {
+      daySet.add(format(parseISO(log.timestamp), 'yyyy-MM-dd'));
+    });
+    return daySet.size;
+  }, [monthLogs]);
+
+  const selectedDateLogs = useMemo(() => {
+    if (!selectedDate) return [];
+    return logs.filter((log) => isSameDay(parseISO(log.timestamp), selectedDate));
+  }, [logs, selectedDate]);
+
+  const handlePrevMonth = useCallback(() => {
+    setSelectedDate(null);
+    setMonth((prevMonth) => {
+      if (prevMonth === 0) {
+        setYear((prevYear) => prevYear - 1);
+        return 11;
+      }
+      return prevMonth - 1;
+    });
+  }, []);
+
+  const handleNextMonth = useCallback(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    if (year > currentYear || (year === currentYear && month >= currentMonth)) {
+      return;
+    }
+
+    setSelectedDate(null);
+    setMonth((prevMonth) => {
+      if (prevMonth === 11) {
+        setYear((prevYear) => prevYear + 1);
+        return 0;
+      }
+      return prevMonth + 1;
+    });
+  }, [year, month]);
+
+  const handleSelectDate = useCallback((date: Date) => {
+    setSelectedDate((prev) => (prev && isSameDay(prev, date) ? null : date));
+  }, []);
+
+  const handleCloseDetail = useCallback(() => {
+    setSelectedDate(null);
+  }, []);
+
+  const handleDelete = useCallback(
+    (id: string) => {
+      Alert.alert(
+        'Delete Log',
+        'Are you sure you want to delete this log? This cannot be undone.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => deleteLog(id),
+          },
+        ]
+      );
+    },
+    [deleteLog]
+  );
+
+  const handleEdit = useCallback(
+    (log: LogEntry) => {
+      router.push(('/log-entry?editId=' + log.id) as any);
+    },
+    [router]
+  );
+
+  const handleAddLog = useCallback(
+    (date: Date) => {
+      router.push(('/log-entry?date=' + date.toISOString()) as any);
+    },
+    [router]
+  );
+
+  const monthName = format(monthDate, 'MMMM');
+  const eventCount = monthLogs.length;
+  const eventLabel = eventCount === 1 ? 'event' : 'events';
+  const summaryTitle = isCurrentMonth
+    ? `${monthName} so far: ${eventCount} ${eventLabel}`
+    : `${monthName}: ${eventCount} ${eventLabel}`;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Timeline</Text>
-      </View>
-      
-      <FlatList
-        data={logs}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>Your history</Text>
-            <Text style={styles.emptySubtitle}>Logs will appear here.</Text>
+      >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Calendar</Text>
+        </View>
+
+        <MonthCalendar
+          year={year}
+          month={month}
+          logs={logs}
+          selectedDate={selectedDate}
+          onSelectDate={handleSelectDate}
+          onPrevMonth={handlePrevMonth}
+          onNextMonth={handleNextMonth}
+        />
+
+        {selectedDate && (
+          <View style={styles.detailContainer}>
+            <DayDetail
+              date={selectedDate}
+              logs={selectedDateLogs}
+              onClose={handleCloseDetail}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              onAddLog={handleAddLog}
+            />
           </View>
-        }
-      />
+        )}
+
+        <Card style={styles.summaryCard} padding="lg">
+          <Text style={styles.summaryTitle}>{summaryTitle}</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <Text style={styles.statValue}>{monthLogs.length}</Text>
+              <Text style={styles.statLabel}>Total logs this month</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statBox}>
+              <Text style={styles.statValue}>{activeDaysCount}</Text>
+              <Text style={styles.statLabel}>Days with activity</Text>
+            </View>
+          </View>
+        </Card>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -79,66 +179,54 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
+  scrollContent: {
     padding: spacing.lg,
-    paddingBottom: spacing.sm,
+    paddingBottom: 100,
+  },
+  header: {
+    marginBottom: spacing.lg,
   },
   headerTitle: {
     ...typography.display,
     color: colors.textPrimary,
   },
-  listContent: {
-    padding: spacing.lg,
-    paddingBottom: 100,
+  detailContainer: {
+    marginTop: spacing.lg,
+    borderRadius: radii.xl,
+    overflow: 'hidden',
   },
-  emptyContainer: {
-    padding: spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 100,
+  summaryCard: {
+    marginTop: spacing.lg,
   },
-  emptyTitle: {
-    ...typography.title,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  emptySubtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  logCard: {
-    marginBottom: spacing.md,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-  },
-  dateText: {
+  summaryTitle: {
     ...typography.headline,
     color: colors.textPrimary,
+    marginBottom: spacing.md,
   },
-  timeText: {
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: spacing.sm,
+  },
+  statBox: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    ...typography.display,
+    color: colors.accentPrimary,
+    marginBottom: spacing.xs,
+  },
+  statLabel: {
     ...typography.caption,
-    color: colors.textTertiary,
-  },
-  triggerTag: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radii.sm,
-    marginBottom: spacing.sm,
-  },
-  triggerTagText: {
-    ...typography.label,
     color: colors.textSecondary,
-    textTransform: 'capitalize',
+    textAlign: 'center',
   },
-  reflectionText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-    marginTop: spacing.xs,
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: colors.divider,
+    marginHorizontal: spacing.sm,
   },
 });

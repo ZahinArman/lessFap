@@ -15,6 +15,8 @@ export default function WelcomeScreen() {
           <Text style={styles.badgeText}>Welcome to Less</Text>
         </View>
         
+        <Text style={styles.stepLabel}>Step 1 of 4</Text>
+
         <Text style={styles.title}>
           Build awareness.{'\n'}Make intentional choices.
         </Text>
@@ -58,6 +60,12 @@ const styles = StyleSheet.create({
     ...typography.label,
     color: colors.accentPrimary,
     textTransform: 'uppercase',
+  },
+  stepLabel: {
+    ...typography.label,
+    color: colors.textTertiary,
+    textTransform: 'uppercase',
+    marginBottom: spacing.md,
   },
   title: {
     ...typography.display,
